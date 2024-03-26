@@ -1,9 +1,7 @@
 #include <iostream>
 #include <SDL.h>
 
-#define PI 3.1415926535897 // Yes I just wrote that from memory
-
-const int delay = 2;
+const int delay = 20;
 
 struct Coords
 {
@@ -61,27 +59,27 @@ Coords project_on_screen(Coords coords, int screen_width, int screen_height, flo
 }
 
 Coords points[16] = {
-    {0, 0, 0},
-    {1, 0, 0},
-    {1, 0, 1},
-    {0, 0, 1},
-    {0, 0, 0},
+    {-1, -1, -1},
+    {1, -1, -1},
+    {1, -1, 1},
+    {-1, -1, 1},
+    {-1, -1, -1},
 
-    {0, 1, 0},
+    {-1, 1, -1},
 
-    {1, 1, 0},
-    {1, 0, 0},
-    {1, 1, 0},
+    {1, 1, -1},
+    {1, -1, -1},
+    {1, 1, -1},
 
     {1, 1, 1},
-    {1, 0, 1},
+    {1, -1, 1},
     {1, 1, 1},
 
-    {0, 1, 1},
-    {0, 0, 1},
-    {0, 1, 1},
+    {-1, 1, 1},
+    {-1, -1, 1},
+    {-1, 1, 1},
 
-    {0, 1, 0},
+    {-1, 1, -1},
 };
 
 int main(int argc, char **argv)
@@ -96,6 +94,12 @@ int main(int argc, char **argv)
 
     int count = 0;
 
+    bool isPressing = false;
+
+    int last_x, last_y = 0;
+
+    int velocity_x, velocity_y = 0;
+
     while (!quit)
     {
         SDL_Delay(10);
@@ -105,6 +109,20 @@ int main(int argc, char **argv)
         {
         case SDL_QUIT:
             quit = true;
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+            if (event.button.button == SDL_BUTTON_LEFT)
+            {
+                isPressing = true;
+                velocity_x = 0;
+                velocity_y = 0;
+            }
+            break;
+        case SDL_MOUSEBUTTONUP:
+            if (event.button.button == SDL_BUTTON_LEFT)
+            {
+                isPressing = false;
+            }
             break;
         }
 
@@ -124,14 +142,47 @@ int main(int argc, char **argv)
             cubeSize = (float)(width) / 5.f;
         }
 
+        int x, y;
+        SDL_GetGlobalMouseState(&x, &y);
+
+        if (isPressing)
+        {
+
+            int dx = x - last_x;
+            int dy = y - last_y;
+
+            velocity_x += dx/delay;
+            velocity_y += dy/delay;
+
+            for (int i = 0; i < sizeof(points) / sizeof(Coords); i++)
+            {
+                points[i] = rotation_y_matrix_product(points[i], (dx * 2 * M_PI) / width);
+                points[i] = rotation_x_matrix_product(points[i], (-dy * 2 * M_PI) / height);
+            }
+
+            /*                 points[i] = rotation_x_matrix_product(points[i], PI / 48);
+                            points[i] = rotation_y_matrix_product(points[i], PI / 48);
+                            points[i] = rotation_z_matrix_product(points[i], PI / 48); */
+        }
+        else
+        {
+            velocity_x *= 0.9;
+            velocity_y *= 0.9;
+            for (int i = 0; i < sizeof(points) / sizeof(Coords); i++)
+            {
+                points[i] = rotation_y_matrix_product(points[i], (velocity_x * 2 * M_PI) / width);
+                points[i] = rotation_x_matrix_product(points[i], (velocity_y * 2 * M_PI) / height);
+            }
+        }
+
+        if (count > delay)
+        {
+            last_x = x;
+            last_y = y;
+        }
+
         for (int i = 0; i < sizeof(points) / sizeof(Coords); i++)
         {
-            if (count > delay)
-            {
-                points[i] = rotation_x_matrix_product(points[i], PI / 48);
-                points[i] = rotation_y_matrix_product(points[i], PI / 48);
-                points[i] = rotation_z_matrix_product(points[i], PI / 48);
-            }
 
             Coords projected_now = project_on_screen(points[i], width, height, cubeSize);
 
@@ -142,7 +193,7 @@ int main(int argc, char **argv)
                 projected_last = project_on_screen(points[i - 1], width, height, cubeSize);
                 z_average = (points[i].z + points[i - 1].z) / 4.f;
             }
-            Uint8 color = 20 + (230 * z_average);
+            Uint8 color = 125 + (125 * z_average);
             SDL_SetRenderDrawColor(renderer, color, color, color, 255);
             SDL_RenderDrawLine(renderer, projected_last.x, projected_last.y, projected_now.x, projected_now.y);
         }
